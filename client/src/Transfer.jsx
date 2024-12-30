@@ -1,27 +1,34 @@
 import { useState } from "react";
-import server from "./server";
+import { transferToRecipient, users } from "./service";
 
-function Transfer({ address, setBalance }) {
+function Transfer({ currentUserPrivateKey, setBalance }) {
   const [sendAmount, setSendAmount] = useState("");
   const [recipient, setRecipient] = useState("");
 
   const setValue = (setter) => (evt) => setter(evt.target.value);
 
+  const [selectedUser, setSelectedUser] = useState({});
+
+  const handleUserComboChange = (event) => {
+    const userId = event.target.value;
+    const index = users.findIndex((u) => u.id == userId);
+    if (index == -1) {
+      setSelectedUser({});
+    } else {
+      setSelectedUser(users[index]);
+      setRecipient(users[index].publicKey);
+    }
+  };
+
   async function transfer(evt) {
     evt.preventDefault();
 
-    try {
-      const {
-        data: { balance },
-      } = await server.post(`send`, {
-        sender: address,
-        amount: parseInt(sendAmount),
-        recipient,
-      });
-      setBalance(balance);
-    } catch (ex) {
-      alert(ex.response.data.message);
-    }
+    const { isSucc, balance } = await transferToRecipient(
+      currentUserPrivateKey,
+      parseInt(sendAmount),
+      recipient
+    );
+    if (isSucc) setBalance(balance);
   }
 
   return (
@@ -38,11 +45,23 @@ function Transfer({ address, setBalance }) {
       </label>
 
       <label>
-        Recipient
+        Select User
+        <select onChange={handleUserComboChange}>
+          <option value="-1">Select ...</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Recipient Public Key
         <input
           placeholder="Type an address, for example: 0x2"
-          value={recipient}
-          onChange={setValue(setRecipient)}
+          value={selectedUser?.publicKey ?? ""}
+          readOnly={true}
         ></input>
       </label>
 
